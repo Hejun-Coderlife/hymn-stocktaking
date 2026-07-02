@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>赫眉 · 盘点表生成</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@700;900&display=swap" rel="stylesheet">
@@ -55,8 +57,10 @@
     -webkit-mask:radial-gradient(circle at 50% 30%,#000,transparent 78%);
     mask:radial-gradient(circle at 50% 30%,#000,transparent 78%)}
 
-  .wrap{position:relative;z-index:1;width:100%;max-width:1380px;padding:40px 26px;perspective:1700px;
-    min-height:100vh;display:flex;flex-direction:column;justify-content:center}
+  .wrap{position:relative;z-index:1;width:100%;max-width:1380px;padding:14px 26px 18px;perspective:1700px;
+    height:100vh;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden}
+  /* 内容滚动区：位于标题栏下方，超出上边界即裁掉，标题栏保持透明不重叠 */
+  .scrollarea{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-top:14px}
 
   /* 页眉编辑条 */
   .ppbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;
@@ -76,32 +80,32 @@
 
   /* ── 顶部品牌（紧凑横排，省竖向空间） ── */
   .brand{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:26px;flex-wrap:wrap}
-  .saturn{width:74px;height:74px;position:relative;transform-style:preserve-3d;flex:none;
+  .saturn{width:40px;height:40px;position:relative;transform-style:preserve-3d;flex:none;
     animation:floaty 6s ease-in-out infinite}
   @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  .saturn .glow{position:absolute;inset:-12px;border-radius:50%;
+  .saturn .glow{position:absolute;inset:-7px;border-radius:50%;
     background:radial-gradient(circle, rgba(232,89,12,.32), transparent 65%);filter:blur(7px)}
-  .saturn .planet{position:absolute;inset:21px;border-radius:50%;
+  .saturn .planet{position:absolute;inset:11px;border-radius:50%;
     background:radial-gradient(circle at 34% 28%, #FFCBA0 0%, #F5772E 38%, var(--orange) 64%, var(--orange-deep) 100%);
     box-shadow:inset -6px -7px 14px rgba(120,40,0,.5),inset 5px 5px 11px rgba(255,210,170,.7),0 10px 22px -6px rgba(232,89,12,.6)}
   .saturn .planet::after{content:"";position:absolute;top:18%;left:22%;width:30%;height:22%;
     border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.85),transparent 70%);filter:blur(2px)}
-  .saturn .ring{position:absolute;inset:4px;border-radius:50%;transform-style:preserve-3d;border:2.5px solid transparent;
+  .saturn .ring{position:absolute;inset:2px;border-radius:50%;transform-style:preserve-3d;border:1.5px solid transparent;
     border-top-color:var(--gold-lt);border-bottom-color:var(--gold);transform:rotateX(74deg) rotateZ(0deg);
     box-shadow:0 0 12px rgba(185,151,76,.4);animation:spin 7s linear infinite}
-  .saturn .ring.r2{inset:11px;border-top-color:rgba(231,206,151,.6);border-bottom-color:rgba(185,151,76,.7);
+  .saturn .ring.r2{inset:6px;border-top-color:rgba(231,206,151,.6);border-bottom-color:rgba(185,151,76,.7);
     animation-duration:5s;animation-direction:reverse}
   @keyframes spin{to{transform:rotateX(74deg) rotateZ(360deg)}}
   .brand .txt{text-align:left}
-  .eyebrow{font-family:'Playfair Display',serif;letter-spacing:.46em;font-size:11px;color:var(--gold);
-    text-transform:uppercase;font-weight:600;margin-bottom:7px;text-shadow:0 1px 0 rgba(255,255,255,.7);
+  .eyebrow{font-family:'Playfair Display',serif;letter-spacing:.46em;font-size:10px;color:var(--gold);
+    text-transform:uppercase;font-weight:600;margin-bottom:4px;text-shadow:0 1px 0 rgba(255,255,255,.7);
     display:inline-flex;align-items:center;gap:11px}
-  .eyebrow::before,.eyebrow::after{content:"";width:22px;height:1px;
-    background:linear-gradient(90deg,transparent,rgba(185,151,76,.85),transparent)}
-  h1{font-family:'Playfair Display','Noto Serif SC',serif;font-weight:800;font-size:40px;letter-spacing:.08em;
+  .eyebrow::after{content:"";width:22px;height:1px;
+    background:linear-gradient(90deg,rgba(185,151,76,.85),transparent)}
+  h1{font-family:'Playfair Display','Noto Serif SC',serif;font-weight:800;font-size:25px;letter-spacing:.08em;
     background:linear-gradient(180deg,#3A322A,#1A1510);-webkit-background-clip:text;background-clip:text;
     -webkit-text-fill-color:transparent;line-height:1.12}
-  .sub{letter-spacing:.36em;font-size:10.5px;color:var(--muted);text-transform:uppercase;margin-top:8px}
+  .sub{letter-spacing:.36em;font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:5px}
 
   /* ── 左右分栏 ── */
   .grid{display:grid;grid-template-columns:minmax(330px,380px) 1fr;gap:26px;align-items:start}
@@ -116,7 +120,7 @@
     background:linear-gradient(160deg,rgba(255,255,255,.9),transparent 40%,rgba(185,151,76,.25));
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
     -webkit-mask-composite:xor;mask-composite:exclude}
-  .col-left{position:sticky;top:24px}
+  .col-left{position:relative}
   .card h2{font-family:'Noto Serif SC',serif;font-size:21px;font-weight:600;margin-bottom:5px}
   .card .hint{color:var(--muted);font-size:13.5px;line-height:1.7;margin-bottom:22px}
 
@@ -156,6 +160,13 @@
   .empty .es{font-size:13px}
 
   #rbody{display:none}
+  #lctrl{display:none;margin-top:22px;padding:20px 22px}
+  #lctrl .stat-row{gap:8px;margin-bottom:12px}
+  #lctrl .stat{min-width:0;padding:10px 8px;border-radius:12px}
+  #lctrl .stat .num{font-size:21px}
+  #lctrl .stat .lab{font-size:10px;margin-top:2px;letter-spacing:0}
+  #lctrl .tabs{margin-bottom:10px}
+  #lctrl .row{margin-top:14px}
   .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
   .stat{flex:1;min-width:130px;border-radius:16px;padding:16px 18px;
     background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(251,244,234,.9));border:1px solid rgba(255,255,255,.8);
@@ -171,21 +182,41 @@
   .tab .n{opacity:.6;font-size:11.5px;margin-left:6px}
 
   .stage{background:radial-gradient(900px 300px at 50% 0%, rgba(34,29,23,.06), transparent 70%),
-      linear-gradient(180deg,#EFE7DA,#E6DBC9);border-radius:18px;padding:28px 0;height:560px;overflow:auto;
+      linear-gradient(180deg,#EFE7DA,#E6DBC9);border-radius:18px;padding:28px 0;height:calc(100vh - 210px);min-height:460px;overflow:auto;
     box-shadow:inset 0 2px 20px rgba(34,29,23,.12)}
+  /* 预览全屏 */
+  .stage-wrap{position:relative}
+  .fs-btn{position:absolute;top:12px;right:12px;z-index:6;width:38px;height:38px;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;border-radius:10px;
+    background:rgba(255,255,255,.88);color:var(--ink);font-size:16px;line-height:1;
+    box-shadow:0 6px 16px -6px rgba(34,29,23,.4),0 0 0 1px var(--line) inset;transition:.16s}
+  .fs-btn:hover{background:#fff;transform:translateY(-1px)}
+  .zoom-ctrl{position:absolute;top:12px;left:12px;z-index:6;display:flex;gap:6px;align-items:center}
+  .zoom-ctrl button{width:34px;height:34px;border:none;cursor:pointer;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.88);color:var(--ink);
+    font-size:19px;line-height:1;box-shadow:0 6px 16px -6px rgba(34,29,23,.4),0 0 0 1px var(--line) inset;transition:.16s}
+  .zoom-ctrl button:hover{background:#fff;transform:translateY(-1px)}
+  .zoom-ctrl .zlabel{min-width:46px;height:34px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;color:var(--ink);background:rgba(255,255,255,.88);border-radius:9px;cursor:pointer;
+    box-shadow:0 0 0 1px var(--line) inset;font-family:'DM Sans',sans-serif}
+  .zoom-ctrl .zlabel:hover{background:#fff}
+  .stage-wrap:fullscreen{background:linear-gradient(180deg,#EFE7DA,#E6DBC9)}
+  .stage-wrap:fullscreen .stage{height:100vh;border-radius:0;padding:56px 0 40px}
+  .stage-wrap:-webkit-full-screen .stage{height:100vh;border-radius:0;padding:56px 0 40px}
   .pp-meta{text-align:center;color:var(--muted);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:18px}
-  .sheet{width:720px;max-width:94%;margin:0 auto 26px;background:#fff;color:#000;padding:26px 26px 34px;border-radius:3px;
+  .sheet{width:720px;aspect-ratio:210/297;margin:0 auto 26px;background:#fff;color:#000;padding:26px 26px 34px;border-radius:3px;
     position:relative;box-shadow:0 2px 4px rgba(0,0,0,.16),0 30px 60px -24px rgba(0,0,0,.4);transition:transform .3s}
   .sheet:hover{transform:translateY(-3px)}
   .sheet-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;font-size:11px;color:#333;
     margin-bottom:9px;font-family:'DM Sans',sans-serif}
   .sheet-hd .c{text-align:center}
-  .ptable{border-collapse:collapse;width:100%;table-layout:fixed;font-size:10.5px;color:#000;
+  .ptable{border-collapse:collapse;width:100%;table-layout:fixed;font-size:10px;color:#000;
     font-family:'DM Sans','Noto Serif SC',sans-serif}
-  .ptable td,.ptable th{border:1px solid #000;padding:4px 5px;line-height:1.25;overflow:hidden;
+  .ptable td,.ptable th{border:1px solid #000;padding:3px 5px;line-height:1.2;overflow:hidden;
     text-overflow:ellipsis;vertical-align:middle}
   .ptable thead th{font-weight:600;background:#fff;white-space:pre-line}
-  .ptable .name{text-align:left;white-space:normal;word-break:break-all}
+  .ptable tbody td{white-space:nowrap}
+  .ptable .name{text-align:left;white-space:nowrap}
   .ta-c{text-align:center}.ta-l{text-align:left}
 
   .err{display:none;background:#FDECEC;border:1px solid #F3C6C6;color:#B23A3A;border-radius:12px;
@@ -211,13 +242,18 @@
 
   /* 顶部 masthead：左 logo / 中标题 */
   .masthead{display:grid;grid-template-columns:170px 1fr 170px;align-items:center;gap:16px;
-    margin-bottom:30px;padding-bottom:22px;border-bottom:1px solid var(--line);position:relative}
+    margin-bottom:0;padding:12px 0;border-bottom:1px solid var(--line);
+    position:relative;z-index:20;flex:none;background:transparent}
   .masthead::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
     background:linear-gradient(90deg,transparent,rgba(185,151,76,.5),transparent)}
-  .mark{width:158px;opacity:.95;filter:drop-shadow(0 6px 14px rgba(34,29,23,.1));transition:.25s}
+  .mark{width:105px;opacity:.95;filter:drop-shadow(0 6px 14px rgba(34,29,23,.1));transition:.25s}
   .mark:hover{opacity:1;transform:translateY(-1px)}
   .mark svg{display:block;width:100%;height:auto}
-  .masthead .hero{justify-self:center;margin-bottom:0;flex-direction:column;gap:10px;text-align:center}
+  /* 真·赫眉 HYMN logo（白色 PNG 经 mask 以暖墨色显示，GitHub 安全相对路径） */
+  .mark .hymn-logo{display:block;width:100%;aspect-ratio:1657/403;background-color:var(--ink);
+    -webkit-mask:url("logo-hymn.png") left center/contain no-repeat;
+    mask:url("logo-hymn.png") left center/contain no-repeat}
+  .masthead .hero{justify-self:center;margin-bottom:0;flex-direction:row;align-items:center;gap:16px;text-align:left}
   @media(max-width:880px){.masthead{grid-template-columns:1fr;justify-items:center;gap:18px}
     .masthead .spacer{display:none}}
   .footlogo{width:200px;margin:0 auto 18px;opacity:.62}
@@ -245,7 +281,6 @@
     <div class="brand hero">
       <div class="saturn"><div class="glow"></div><div class="ring"></div><div class="ring r2"></div><div class="planet"></div></div>
       <div class="txt">
-        <div class="eyebrow">Maison Lumière</div>
         <h1>盘点表生成</h1>
         <div class="sub">Inventory Sheet Atelier</div>
       </div>
@@ -253,6 +288,7 @@
     <div class="spacer"></div>
   </header>
 
+  <div class="scrollarea">
   <div class="grid">
     <!-- 左：上传 -->
     <div class="col-left">
@@ -268,9 +304,29 @@
         <div class="row"><button class="btn btn-primary" id="go" disabled>开 始 处 理</button></div>
         <div class="err" id="err"></div>
       </div>
+      <!-- 处理后：统计 / 店铺 / 有效期 / 下载 —— 全部移到左列 -->
+      <div class="card" id="lctrl">
+        <div class="hint" id="src-hint" style="margin-bottom:16px"></div>
+        <div class="stat-row">
+          <div class="stat"><div class="num" id="st-wh">0</div><div class="lab">店铺</div></div>
+          <div class="stat"><div class="num" id="st-rows">0</div><div class="lab">商品行数</div></div>
+          <div class="stat"><div class="num" id="st-pages">0</div><div class="lab">表格页数</div></div>
+        </div>
+        <div class="tabs" id="tabs"></div>
+        <div class="ppbar">
+          <span class="pl">📅 右上角有效期</span>
+          <input id="hdr" value="有效期统计2027年12月31日前" spellcheck="false">
+          <button class="mini" id="applyhdr">应用并更新</button>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="dlzip">下 载 全 部（ZIP）</button>
+          <button class="btn btn-ghost" id="again">重新选择</button>
+        </div>
+        <div class="dl-list" id="dllist"></div>
+      </div>
     </div>
 
-    <!-- 右：预览 -->
+    <!-- 右：纯预览 -->
     <div class="card" id="result">
       <h2>处理结果 · 打印预览</h2>
       <div class="empty" id="empty">
@@ -289,29 +345,21 @@
         </div>
       </div>
       <div id="rbody">
-        <div class="hint" id="src-hint" style="margin-bottom:16px"></div>
-        <div class="stat-row">
-          <div class="stat"><div class="num" id="st-wh">0</div><div class="lab">仓库（文件）</div></div>
-          <div class="stat"><div class="num" id="st-rows">0</div><div class="lab">商品行数合计</div></div>
-          <div class="stat"><div class="num" id="st-pages">0</div><div class="lab">当前仓库页数</div></div>
+        <div class="stage-wrap" id="stagewrap">
+          <button class="fs-btn" id="fsbtn" title="全屏预览（Esc 退出）" aria-label="全屏预览">⛶</button>
+          <div class="zoom-ctrl">
+            <button id="zoomout" title="缩小" aria-label="缩小">−</button>
+            <span class="zlabel" id="zlabel" title="点击回到 100%">100%</span>
+            <button id="zoomin" title="放大（Ctrl/⌘+滚轮）" aria-label="放大">+</button>
+          </div>
+          <div class="stage" id="stage"></div>
         </div>
-        <div class="tabs" id="tabs"></div>
-        <div class="ppbar">
-          <span class="pl">📅 右上角有效期</span>
-          <input id="hdr" value="有效期统计2027年12月31日前" spellcheck="false">
-          <button class="mini" id="applyhdr">应用并更新</button>
-        </div>
-        <div class="stage" id="stage"></div>
-        <div class="row">
-          <button class="btn btn-primary" id="dlzip">下 载 全 部（ZIP）</button>
-          <button class="btn btn-ghost" id="again">重新选择</button>
-        </div>
-        <div class="dl-list" id="dllist"></div>
       </div>
     </div>
   </div>
 
   <div class="foot">Crafted for Excellence</div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -330,7 +378,7 @@ const COLS = [
 ];
 const WSUM = COLS.reduce((s,c)=>s+c.w,0);
 const EXAMPLE = ["举例","Lumi综合发酵果粉（固体饮料）","4712847540248","Lumi","79","10","3+8","20251231",""];
-const ROWS_PER_PAGE = 20;
+const ROWS_PER_PAGE = 45;  // 对齐下载 Excel（WPS 适应页宽）每页实际行数：483行=10页×45+末页33，逐页与 WPS 完全一致
 const DEFAULT_HEADER_RIGHT = "有效期统计2027年12月31日前";
 
 let chosen=null, data=null, active=0, toastTimer=null;
@@ -541,6 +589,7 @@ go.onclick=runProcess;
 function render(){
   $('#empty').style.display='none';
   $('#rbody').style.display='block';
+  $('#lctrl').style.display='block';
   $('#src-hint').textContent='来源：'+data.source+'　·　拆分日期 '+data.header_date;
   $('#st-wh').textContent=data.warehouse_count;
   $('#st-rows').textContent=data.total_rows;
@@ -573,6 +622,7 @@ function titleRows(){
     + '<tr>'+COLS.map(c=>'<th class="'+c.cls.replace('name','ta-l')+'">'+esc(c.name)+'</th>').join('')+'</tr>'
     + '</thead>';
 }
+let previewZoom=1;   // 预览等比缩放系数
 function drawSheets(){
   const p=data.previews[active];
   const rows=p.rows;
@@ -588,7 +638,9 @@ function drawSheets(){
       +'<table class="ptable">'+colgroup()+titleRows()
       +'<tbody>'+slice.map(dataRow).join('')+'</tbody></table></div>';
   }
-  const stage=$('#stage'); stage.innerHTML=html; stage.scrollTop=0;
+  const stage=$('#stage'); stage.innerHTML='<div class="sheets" id="sheets">'+html+'</div>';
+  const sh=$('#sheets'); if(sh) sh.style.zoom=previewZoom;   // 保持当前缩放
+  stage.scrollTop=0;
 }
 
 function downloadBlob(blob, name){
@@ -615,7 +667,7 @@ $('#dlzip').onclick=async ()=>{
 };
 $('#again').onclick=()=>{
   data=null; chosen=null; FILES=new Map(); fileInput.value=''; $('#filetag').innerHTML='';
-  go.disabled=true; $('#rbody').style.display='none'; $('#empty').style.display='flex';
+  go.disabled=true; $('#rbody').style.display='none'; $('#lctrl').style.display='none'; $('#empty').style.display='flex';
 };
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -629,7 +681,38 @@ const LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 200" 
   +'<text x="170" y="135" text-anchor="middle" font-family="\'Noto Sans SC\',\'PingFang SC\',\'Microsoft YaHei\',sans-serif" font-weight="900" font-size="98" letter-spacing="2" fill="#221D17">赫眉</text>'
   +'<text x="362" y="130" font-family="\'Arial Black\',\'Helvetica Neue\',\'DM Sans\',sans-serif" font-weight="900" font-size="80" letter-spacing="6" fill="#221D17">HYMN</text>'
   +'</svg>';
-$('#topbrand').innerHTML=LOGO_SVG;
+// 主 logo 用真实 PNG（mask 上色）；若图片加载失败则回退到内联 SVG 文字版，杜绝“上传后显示不出来”
+$('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 HYMN"></span>';
+(function(){var probe=new Image();probe.onerror=function(){$('#topbrand').innerHTML=LOGO_SVG;};probe.src='logo-hymn.png';})();
+
+// 预览窗口全屏
+(function(){
+  const btn=$('#fsbtn'), wrap=$('#stagewrap'); if(!btn||!wrap) return;
+  const req=wrap.requestFullscreen||wrap.webkitRequestFullscreen;
+  const exit=document.exitFullscreen||document.webkitExitFullscreen;
+  btn.addEventListener('click',()=>{
+    const fs=document.fullscreenElement||document.webkitFullscreenElement;
+    if(fs){ exit.call(document); } else { req.call(wrap); }
+  });
+  const sync=()=>{ const fs=document.fullscreenElement||document.webkitFullscreenElement;
+    btn.textContent=fs?'✕':'⛶'; btn.title=fs?'退出全屏（Esc）':'全屏预览（Esc 退出）'; };
+  document.addEventListener('fullscreenchange',sync);
+  document.addEventListener('webkitfullscreenchange',sync);
+})();
+
+// 预览缩放（普通/全屏均可；按钮或 Ctrl/⌘+滚轮）
+(function(){
+  const stage=$('#stage'), zi=$('#zoomin'), zo=$('#zoomout'), zl=$('#zlabel');
+  if(!stage||!zi) return;
+  const clamp=v=>Math.min(3, Math.max(0.4, v));
+  const apply=()=>{ const sh=$('#sheets'); if(sh) sh.style.zoom=previewZoom; zl.textContent=Math.round(previewZoom*100)+'%'; };
+  zi.onclick=()=>{ previewZoom=clamp(Math.round(previewZoom*10)/10 + 0.2); apply(); };  // 先对齐 0.1 网格再步进
+  zo.onclick=()=>{ previewZoom=clamp(Math.round(previewZoom*10)/10 - 0.2); apply(); };
+  zl.onclick=()=>{ previewZoom=1; apply(); };   // 点百分比直接回到 100%
+  stage.addEventListener('wheel',e=>{ if(e.ctrlKey||e.metaKey){ e.preventDefault();
+    previewZoom=clamp(+(previewZoom+(e.deltaY<0?0.1:-0.1)).toFixed(2)); apply(); } },{passive:false});
+  apply();
+})();
 
 // ── 金色颗粒雾背景（满屏金色颗粒 + 雾密度 + 鼠标搅动）──
 (function(){
@@ -639,11 +722,12 @@ $('#topbrand').innerHTML=LOGO_SVG;
   const TONES=['233,201,128','214,181,108','190,156,82','231,141,70'];
   function build(){
     W=cv.width=innerWidth; H=cv.height=innerHeight;
-    const gn=Math.min(3000, Math.floor(W*H/760));
+    const gn=Math.min(30000, Math.floor(W*H/40));
     grains=[];
     for(let i=0;i<gn;i++){
       const x=Math.random()*W, y=Math.random()*H;
-      grains.push({hx:x,hy:y,x:x,y:y,vx:0,vy:0,
+      grains.push({x:x,y:y,vx:0,vy:0,
+        dx:(Math.random()-.5)*0.22, dy:(Math.random()-.5)*0.22,  // 各自缓慢漂移方向（游离）
         s:Math.random()*1.5+0.5, a:Math.random()*0.5+0.2,
         tone:TONES[(Math.random()*TONES.length)|0],
         tw:Math.random()*6.283, tsp:Math.random()*0.9+0.4});
@@ -675,8 +759,11 @@ $('#topbrand').innerHTML=LOGO_SVG;
           p.vx+=(dx/d)*ff*2.8 + mouse.vx*ff*0.08;
           p.vy+=(dy/d)*ff*2.8 + mouse.vy*ff*0.08; }
       }
-      p.vx+=(p.hx-p.x)*0.02; p.vy+=(p.hy-p.y)*0.02;
-      p.vx*=0.8; p.vy*=0.8; p.x+=p.vx; p.y+=p.vy;
+      // 游离：不再回到固定原位，各自缓慢漂移；鼠标扰动叠加后快速衰减（迅速恢复）
+      p.vx*=0.78; p.vy*=0.78;
+      p.x+=p.vx+p.dx; p.y+=p.vy+p.dy;
+      if(p.x<-2)p.x+=W+4; else if(p.x>W+2)p.x-=W+4;   // 边缘环绕
+      if(p.y<-2)p.y+=H+4; else if(p.y>H+2)p.y-=H+4;
       const tw=0.5+0.5*Math.sin(t*p.tsp+p.tw);
       cx.fillStyle='rgba('+p.tone+','+(p.a*tw).toFixed(3)+')';
       cx.fillRect(p.x, p.y, p.s, p.s);

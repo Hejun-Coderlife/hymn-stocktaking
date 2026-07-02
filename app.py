@@ -594,9 +594,9 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div id="rbody">
         <div class="hint" id="src-hint" style="margin-bottom:16px"></div>
         <div class="stat-row">
-          <div class="stat"><div class="num" id="st-wh">0</div><div class="lab">仓库（文件）</div></div>
-          <div class="stat"><div class="num" id="st-rows">0</div><div class="lab">商品行数合计</div></div>
-          <div class="stat"><div class="num" id="st-pages">0</div><div class="lab">当前仓库页数</div></div>
+          <div class="stat"><div class="num" id="st-wh">0</div><div class="lab">店铺</div></div>
+          <div class="stat"><div class="num" id="st-rows">0</div><div class="lab">商品行数</div></div>
+          <div class="stat"><div class="num" id="st-pages">0</div><div class="lab">表格页数</div></div>
         </div>
         <div class="tabs" id="tabs"></div>
         <div class="ppbar">
