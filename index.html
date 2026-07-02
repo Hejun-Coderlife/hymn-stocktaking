@@ -714,6 +714,23 @@ $('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 
   apply();
 })();
 
+// 鼠标在流沙背景等 .scrollarea 外区域时，滚轮仍滚动主内容区
+(function(){
+  const scrollArea=document.querySelector('.scrollarea');
+  const stage=$('#stage');
+  if(!scrollArea) return;
+  document.addEventListener('wheel',e=>{
+    const hit=document.elementFromPoint(e.clientX,e.clientY);
+    if(!hit) return;
+    if(stage&&stage.contains(hit)) return;
+    if(scrollArea.contains(hit)) return;
+    const max=scrollArea.scrollHeight-scrollArea.clientHeight;
+    if(max<=0) return;
+    e.preventDefault();
+    scrollArea.scrollTop=Math.max(0, Math.min(max, scrollArea.scrollTop+e.deltaY));
+  },{passive:false});
+})();
+
 // ── 金色颗粒雾背景（满屏金色颗粒 + 雾密度 + 鼠标搅动）──
 (function(){
   const cv=document.getElementById('bg'), cx=cv.getContext('2d');
