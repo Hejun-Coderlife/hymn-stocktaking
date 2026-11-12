@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- 2026-11-12 用户：图标改成「盘」字。暖墨底 + 页面同款金色 -->
+  <!-- 2026-11-12 用户：图标用大写 P（「盘」字中文太丑）。暖墨底 + 页面同款金色 -->
   <rect width="64" height="64" rx="12" fill="#221D17"/>
-  <text x="32" y="46" text-anchor="middle" font-family="Songti SC, STSong, SimSun, serif" font-weight="700" font-size="42" fill="#E7CE97">盘</text>
+  <text x="32" y="49" text-anchor="middle" font-family="Didot, Bodoni 72, Georgia, serif" font-weight="400" font-size="48" fill="#E7CE97">P</text>
 </svg>
