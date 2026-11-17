@@ -319,6 +319,7 @@ const DEFAULT_HEADER_RIGHT = "有效期统计2028年6月30日前";
 let chosen=null, data=null, active=0, toastTimer=null;
 let FILES = new Map();           // name -> Blob（已生成的 xls）
 const $=s=>document.querySelector(s);
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
 const drop=$('#drop'),fileInput=$('#file'),go=$('#go'),err=$('#err');
 
 drop.onclick=()=>fileInput.click();
@@ -327,7 +328,7 @@ drop.onclick=()=>fileInput.click();
 drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length)setFile(ev.dataTransfer.files[0])});
 fileInput.onchange=()=>{if(fileInput.files.length)setFile(fileInput.files[0])};
 
-function setFile(f){chosen=f;go.disabled=false;err.style.display='none';
+function setFile(f,restoring){chosen=f; if(!restoring){ LS.set('stk.done',null); LS.set('stk.page',null); if(window.previewForgetPage) previewForgetPage(); saveUpload(f); }go.disabled=false;err.style.display='none';
   $('#filetag').innerHTML='<span class="file-tag"><span class="dot"></span>'+esc(f.name)+'</span><a class="clr" id="clr">清空</a>'; drop.classList.add('has'); $('#sidedata').innerHTML='当前表格<br><b>'+esc(f.name)+'</b>';}
 
 // ───────────────────────────────────────────────────────────────────
@@ -759,7 +760,7 @@ async function runProcess(){
       zip_name: '盘点表格汇总_'+res.header_date+'.zip',
       previews: res.previews,
     };
-    render();
+    render(); LS.set('stk.done','1');
   }catch(e){ err.textContent='处理失败：'+(e&&e.message||e); err.style.display='block'; }
   finally{ go.disabled=false; go.innerHTML=old; }
 }
@@ -772,11 +773,11 @@ function render(){
   $('#src-hint').textContent='来源：'+data.source+'　·　拆分日期 '+data.header_date;
   $('#st-wh').textContent=data.warehouse_count;
   $('#st-rows').textContent=data.total_rows;
-  const tabs=$('#tabs'); tabs.innerHTML=''; active=0;
+  const tabs=$('#tabs'); tabs.innerHTML=''; active=Math.max(0,data.previews.findIndex(p=>p.warehouse===LS.get('stk.tab')));
   data.previews.forEach((p,i)=>{
-    const t=document.createElement('div'); t.className='tab'+(i===0?' active':'');
+    const t=document.createElement('div'); t.className='tab'+(i===active?' active':'');
     t.innerHTML=esc(p.warehouse)+'<span class="n">'+p.count+'</span>';
-    t.onclick=()=>{active=i;[...tabs.children].forEach(c=>c.classList.remove('active'));t.classList.add('active');drawSheets()};
+    t.onclick=()=>{active=i; LS.set('stk.tab',p.warehouse);[...tabs.children].forEach(c=>c.classList.remove('active'));t.classList.add('active');drawSheets()};
     tabs.appendChild(t);
   });
   const dl=$('#dllist'); dl.innerHTML='';
@@ -886,6 +887,7 @@ $('#dlzip').onclick=async ()=>{
 // 清空：文件名后面的小字链接（2026-11-17 用户：「重新选择」按钮不要，改成清空上传的表格）
 $('#filetag').addEventListener('click',e=>{ if(e.target.id!=='clr') return; e.preventDefault(); e.stopPropagation(); clearAll(); });
 function clearAll(){
+  LS.set('stk.done',null); LS.set('stk.tab',null); LS.set('stk.page',null); idb('readwrite',st=>st.delete('upload')).catch(()=>{});
   data=null; chosen=null; FILES=new Map(); fileInput.value=''; $('#filetag').innerHTML=''; drop.classList.remove('has'); $('#sidedata').textContent='还没选表格';
   go.disabled=true; $('#rbody').style.display='none'; $('#lctrl').style.display='none'; $('#empty').style.display='flex'; err.style.display='none';
 }
@@ -934,6 +936,9 @@ $('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 
   const SW=720, GAP=26, PADX=26;
   const SH=()=>{ const f=$('#sheets')&&$('#sheets').children[0]; return f?f.offsetHeight:720*297/210; };   // 45 行会把纸撑得比 A4 高，按实际量
   let mode='all';   // all | one | custom
+  let pendingPage=null;   // 刷新后要回到的页
+  try{ const v=JSON.parse(LS.get('stk.view')||'null'); if(v){ mode=v.mode||'all'; if(mode==='custom') previewZoom=v.zoom||1; }
+       const pg=LS.get('stk.page'); if(pg!=null) pendingPage=+pg; }catch(e){}
   const clamp=v=>Math.min(3, Math.max(0.12, v));
   const box=()=>{ const meta=stage.querySelector('.pp-meta');
     return { W: stage.clientWidth, H: stage.clientHeight - 84 - (meta?meta.offsetHeight+14:0) - 2 }; };
@@ -955,8 +960,11 @@ $('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 
     zl.textContent=Math.round(previewZoom*100)+'%';
     bAll.classList.toggle('on',mode==='all'); bOne.classList.toggle('on',mode==='one');
     if(i!=null) goPage(i); }
-  function set(m,z,keep){ mode=m; previewZoom=clamp(z); apply(keep); }
-  window.previewRefit=()=>{ if(mode==='all') set('all',fitAll()); else if(mode==='one') set('one',fitOne()); else apply(); };
+  function set(m,z,keep){ mode=m; previewZoom=clamp(z); apply(keep); LS.set('stk.view',JSON.stringify({mode,zoom:previewZoom})); }
+  let st; stage.addEventListener('scroll',()=>{ clearTimeout(st); st=setTimeout(()=>{ const i=anchor(); if(i!=null) LS.set('stk.page',String(i)); },200); });
+  window.previewRefit=()=>{ if(mode==='all') set('all',fitAll()); else if(mode==='one') set('one',fitOne()); else apply();
+    if(pendingPage!=null){ const i=pendingPage; pendingPage=null; requestAnimationFrame(()=>goPage(i)); } };
+  window.previewForgetPage=()=>{ pendingPage=null; };
   bAll.onclick=()=>{ set('all',fitAll()); stage.scrollTop=0; };
   bOne.onclick=()=>set('one',fitOne(),true);
   zi.onclick=()=>set('custom',Math.round(previewZoom*10)/10+0.1,true);
@@ -971,6 +979,16 @@ $('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 
   apply();
 })();
 
+
+// ── 刷新不丢（2026-11-17 用户：刷新网页后内容不要丢）──
+// 上传的表格原样存进这台电脑浏览器的 IndexedDB；刷新后自动放回去，处理过的就重新处理一遍（店铺 / 看到第几页 / 一览单页都记着）
+function saveUpload(f){ idb('readwrite',st=>st.put({name:f.name,type:f.type,blob:f,lastModified:f.lastModified},'upload')).catch(()=>{}); }
+idb('readonly',st=>st.get('upload')).then(u=>{
+  if(!u||!u.blob||chosen) return;
+  const f=new File([u.blob],u.name,{type:u.type||'',lastModified:u.lastModified||Date.now()});
+  setFile(f,true);
+  if(LS.get('stk.done')) runProcess();
+}).catch(()=>{});
 </script>
 </body>
 </html>
