@@ -702,7 +702,8 @@ async function processExcelFile(file, headerRight){
   // 按仓库名称分组（键升序，等价 pandas groupby）
   const groups = new Map();
   for(const r of rows){
-    const w = String(r['仓库名称']);
+    const w = String(r['仓库名称']).trim();
+    if(!w) continue;   // 没仓库名的行 = ERP 导出末尾的合计行（商品编号处是总行数），不是店（2026-11-17 用户：预览只看到个尾巴）
     if(!groups.has(w)) groups.set(w, []);
     groups.get(w).push(r);
   }
