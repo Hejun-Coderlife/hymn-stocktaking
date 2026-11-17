@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Noto+Sans+SC:wght@700;900&display=swap" rel="stylesheet">
-<!-- 纯前端 Excel 处理：SheetJS 读取 · ExcelJS 生成带格式 xlsx · JSZip 打包 -->
+<!-- 纯前端 Excel 处理：SheetJS 读取 · ExcelJS 排版 + 自写 BIFF8 导出 xls · JSZip 打包 -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -382,7 +382,7 @@ const ROWS_PER_PAGE = 45;  // 对齐下载 Excel（WPS 适应页宽）每页实�
 const DEFAULT_HEADER_RIGHT = "有效期统计2027年12月31日前";
 
 let chosen=null, data=null, active=0, toastTimer=null;
-let FILES = new Map();           // name -> Blob（已生成的 xlsx）
+let FILES = new Map();           // name -> Blob（已生成的 xls）
 const $=s=>document.querySelector(s);
 const drop=$('#drop'),fileInput=$('#file'),go=$('#go'),err=$('#err');
 
@@ -524,6 +524,249 @@ function buildWarehouseWorkbook(warehouse, rows, headerRight, tomorrow){
   return { wb, preview };
 }
 
+// ── 写出真正的 Excel 97-2003 (.xls / BIFF8) ─────────────────────────────
+// 把 ExcelJS 工作表原样转成 xls：边框、字号、底色、对齐换行、文本格式、
+// 行高列宽、隐藏列、冻结窗格、缩放、A4/适应页宽/页边距/页眉、打印区域/标题行
+const XLSWriter = (()=>{
+  function W(){
+    let buf=new Uint8Array(4096), n=0;
+    const ensure=k=>{ if(n+k>buf.length){ const nb=new Uint8Array(Math.max(buf.length*2,n+k)); nb.set(buf); buf=nb; } };
+    return {
+      u8(v){ensure(1);buf[n++]=v&255;},
+      u16(v){ensure(2);buf[n++]=v&255;buf[n++]=(v>>>8)&255;},
+      u32(v){ensure(4);for(let i=0;i<4;i++)buf[n++]=(v>>>(8*i))&255;},
+      f64(v){ensure(8);new DataView(buf.buffer).setFloat64(n,v,true);n+=8;},
+      bytes(b){ensure(b.length);buf.set(b,n);n+=b.length;},
+      utf16(s){for(let i=0;i<s.length;i++)this.u16(s.charCodeAt(i));},
+      set32(p,v){for(let i=0;i<4;i++)buf[p+i]=(v>>>(8*i))&255;},
+      get len(){return n;},
+      out(){return buf.slice(0,n);}
+    };
+  }
+  const body=fn=>{const b=W();fn(b);return b.out();};
+  const rec=(w,type,b)=>{w.u16(type);w.u16(b.length);w.bytes(b);};
+  const R=(w,type,fn)=>rec(w,type,body(fn||(()=>{})));
+  const str16=(b,s)=>{b.u16(s.length);b.u8(1);b.utf16(s);};   // XLUnicodeString
+  const str8=(b,s)=>{b.u8(s.length);b.u8(1);b.utf16(s);};     // ShortXLUnicodeString
+
+  // BIFF8 默认调色板（索引 8..63）
+  const DEFAULT_PAL=('000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF 800000 008000 000080 808000 800080 008080 C0C0C0 808080 '+
+    '9999FF 993366 FFFFCC CCFFFF 660066 FF8080 0066CC CCCCFF 000080 FF00FF FFFF00 00FFFF 800080 800000 008080 0000FF '+
+    '00CCFF CCFFFF CCFFCC FFFF99 99CCFF FF99CC CC99FF FFCC99 3366FF 33CCCC 99CC00 FFCC00 FF9900 FF6600 666699 969696 '+
+    '003366 339966 003300 333300 993300 993366 333399 333333').split(' ');
+
+  const colNum=s=>{let n=0;for(const ch of s.toUpperCase())n=n*26+ch.charCodeAt(0)-64;return n-1;};
+  function parseArea(a){                       // 'A1:I120' -> {r1,r2,c1,c2}（0 起）
+    const m=/^\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/i.exec(a||''); if(!m) return null;
+    return {r1:+m[2]-1,r2:+m[4]-1,c1:colNum(m[1]),c2:colNum(m[3])};
+  }
+
+  function writeWorkbook(ws){
+    const nrow=ws.rowCount, ncol=ws.columnCount;
+    const pal=DEFAULT_PAL.slice(); let nextSlot=55;          // 自定义颜色从调色板末尾往前占位
+    const color=argb=>{
+      const hex=String(argb||'').slice(-6).toUpperCase();
+      let i=pal.indexOf(hex); if(i<0){ i=nextSlot--; pal[i]=hex; }
+      return i+8;
+    };
+
+    // 字体 / XF 去重
+    const fonts=[], fontKey=new Map();
+    const fontIdx=f=>{
+      f=f||{}; const size=f.size||11, name=f.name||'Calibri', bold=!!f.bold,
+            icv=f.color&&f.color.argb?color(f.color.argb):0x7FFF;
+      const k=[size,name,bold,icv].join('|');
+      if(!fontKey.has(k)){ fontKey.set(k, fonts.length<4? fonts.length : fonts.length+1); fonts.push({size,name,bold,icv}); }
+      return fontKey.get(k);
+    };
+    for(let i=0;i<4;i++) fonts.push({size:11,name:'Calibri',bold:false,icv:0x7FFF}); // 0-3 默认字体（索引 4 保留不用）
+    fontKey.set([11,'Calibri',false,0x7FFF].join('|'),0);
+    const xfs=[], xfKey=new Map();
+    const H={left:1,center:2,right:3}, V={top:0,middle:1,bottom:2};
+    const xfIdx=st=>{
+      const a=st.alignment||{}, bd=st.border||{}, fl=st.fill;
+      const x={ font:fontIdx(st.font), fmt:st.numFmt==='@'?49:0,
+        h:H[a.horizontal]||0, v:a.vertical in V?V[a.vertical]:2, wrap:a.wrapText?1:0,
+        bl:bd.left?1:0, br:bd.right?1:0, bt:bd.top?1:0, bb:bd.bottom?1:0,
+        fill: fl&&fl.type==='pattern'&&fl.pattern==='solid'&&fl.fgColor? color(fl.fgColor.argb):0 };
+      const k=JSON.stringify(x);
+      if(!xfKey.has(k)){ xfKey.set(k, 21+xfs.length); xfs.push(x); }
+      return xfKey.get(k);
+    };
+
+    // 单元格 → 记录
+    const sst=[], sstMap=new Map(); let sstTotal=0;
+    const rowsOut=[];
+    for(let r=1;r<=nrow;r++){
+      const row=ws.getRow(r), cells=[];
+      for(let c=1;c<=ncol;c++){
+        const cell=row.getCell(c), st=cell.style||{};
+        let v=cell.value; if(v&&typeof v==='object'&&'richText' in v) v=v.richText.map(t=>t.text).join('');
+        const hasStyle=st.border||st.fill||st.font||st.alignment||st.numFmt;
+        if((v===null||v===undefined||v==='') && !hasStyle) continue;
+        const xf=xfIdx(st);
+        if(typeof v==='number'&&isFinite(v)) cells.push({c:c-1,xf,num:v});
+        else if(v!==null&&v!==undefined&&v!==''){
+          const s=String(v); if(!sstMap.has(s)){sstMap.set(s,sst.length);sst.push(s);} sstTotal++;
+          cells.push({c:c-1,xf,sst:sstMap.get(s)});
+        } else cells.push({c:c-1,xf});
+      }
+      rowsOut.push({r:r-1, ht:row.height?Math.round(row.height*20):300, custom:!!row.height, cells});
+    }
+
+    // ── 全局子流 ──
+    const g=W();
+    const bof=(w,dt)=>R(w,0x0809,b=>{b.u16(0x0600);b.u16(dt);b.u16(0x0DBB);b.u16(0x07CC);b.u32(0);b.u32(6);});
+    bof(g,0x0005);
+    R(g,0x00E1,b=>b.u16(0x04B0));                             // INTERFACEHDR
+    R(g,0x00C1,b=>b.u16(0));                                  // MMS
+    R(g,0x00E2);                                              // INTERFACEEND
+    R(g,0x0042,b=>b.u16(1200));                               // CODEPAGE = UTF-16
+    R(g,0x003D,b=>{b.u16(0);b.u16(0);b.u16(0x4000);b.u16(0x2000);b.u16(0x0038);b.u16(0);b.u16(0);b.u16(1);b.u16(0x0258);}); // WINDOW1
+    R(g,0x0022,b=>b.u16(0));                                  // DATEMODE 1900
+    fonts.forEach(f=>R(g,0x0031,b=>{b.u16(f.size*20);b.u16(0);b.u16(f.icv);b.u16(f.bold?700:400);b.u16(0);b.u8(0);b.u8(0);b.u8(0);b.u8(0);str8(b,f.name);}));
+    const xfRec=(b,{font=0,fmt=0,style=false,h=0,v=2,wrap=0,bl=0,br=0,bt=0,bb=0,fill=0})=>{
+      b.u16(font);b.u16(fmt);b.u16(style?0xFFF5:0x0001);
+      b.u8(h|(wrap<<3)|(v<<4));b.u8(0);b.u8(0);b.u8(style?0:0xFC);
+      const K=8;                                               // 边框黑色
+      b.u32((bl|br<<4|bt<<8|bb<<12|(bl?K:0)<<16|(br?K:0)<<23)>>>0);
+      b.u32(((bt?K:0)|(bb?K:0)<<7|(fill?1:0)<<26)>>>0);
+      b.u16((fill||0x40)|0x41<<7);
+    };
+    for(let i=0;i<15;i++) R(g,0x00E0,b=>xfRec(b,{style:true}));   // 0-14 样式 XF
+    R(g,0x00E0,b=>xfRec(b,{}));                                    // 15 默认单元格 XF
+    for(let i=0;i<5;i++) R(g,0x00E0,b=>xfRec(b,{style:true}));    // 16-20
+    xfs.forEach(x=>R(g,0x00E0,b=>xfRec(b,x)));                     // 21+ 自定义
+    R(g,0x0293,b=>{b.u16(0x8000);b.u8(0);b.u8(0xFF);});           // STYLE Normal
+    R(g,0x0092,b=>{b.u16(56);pal.forEach(h=>{b.u8(parseInt(h.slice(0,2),16));b.u8(parseInt(h.slice(2,4),16));b.u8(parseInt(h.slice(4,6),16));b.u8(0);});});
+    const bsPos=g.len+4;
+    R(g,0x0085,b=>{b.u32(0);b.u16(0);str8(b,String(ws.name||'Sheet1').slice(0,31));}); // BOUNDSHEET（偏移稍后回填）
+    R(g,0x008C,b=>{b.u16(86);b.u16(86);});                         // COUNTRY
+
+    // 打印区域 / 打印标题行（内置名称 0x06 / 0x07）
+    const ps=ws.pageSetup||{};
+    const names=[];
+    const pa=parseArea(ps.printArea); if(pa) names.push([0x06,pa]);
+    const pt=/^\$?(\d+):\$?(\d+)$/.exec(ps.printTitlesRow||''); if(pt) names.push([0x07,{r1:+pt[1]-1,r2:+pt[2]-1,c1:0,c2:255}]);
+    if(names.length){
+      R(g,0x01AE,b=>{b.u16(1);b.u16(0x0401);});                   // SUPBOOK（本工作簿）
+      R(g,0x0017,b=>{b.u16(1);b.u16(0);b.u16(0);b.u16(0);});      // EXTERNSHEET
+      names.forEach(([code,a])=>R(g,0x0018,b=>{
+        b.u16(0x0020);b.u8(0);b.u8(1);b.u16(11);b.u16(0);b.u16(1);b.u8(0);b.u8(0);b.u8(0);b.u8(0);
+        b.u8(0);b.u8(code);                                       // 名称（压缩 1 字符）
+        b.u8(0x3B);b.u16(0);b.u16(a.r1);b.u16(a.r2);b.u16(a.c1);b.u16(a.c2); // tArea3d
+      }));
+    }
+
+    // SST（共享字符串，超长自动拆 CONTINUE）+ EXTSST
+    {
+      const MAX=8224, recs=[]; let b=W(); b.u32(sstTotal); b.u32(sst.length);
+      const dsst=Math.max(8,Math.ceil(sst.length/128)), ext=[];
+      sst.forEach((s,i)=>{
+        if(b.len+5>MAX){recs.push(b.out());b=W();}
+        if(i%dsst===0) ext.push([recs.length,b.len]);
+        b.u16(s.length);b.u8(1);
+        for(let k=0;k<s.length;k++){ if(b.len+2>MAX){recs.push(b.out());b=W();b.u8(1);} b.u16(s.charCodeAt(k)); }
+      });
+      recs.push(b.out());
+      const pos=[];
+      recs.forEach((rb,j)=>{pos.push(g.len);rec(g,j?0x003C:0x00FC,rb);});
+      R(g,0x00FF,e=>{e.u16(dsst);ext.forEach(([j,off])=>{e.u32(pos[j]+4+off);e.u16(4+off);e.u16(0);});});
+    }
+    R(g,0x000A);                                                    // EOF
+
+    // ── 工作表子流 ──
+    const s=W();
+    bof(s,0x0010);
+    R(s,0x000D,b=>b.u16(1));  R(s,0x000C,b=>b.u16(100)); R(s,0x000F,b=>b.u16(1)); R(s,0x0011,b=>b.u16(0));
+    R(s,0x0010,b=>b.f64(0.001)); R(s,0x005F,b=>b.u16(1));           // CALCMODE/CALCCOUNT/REFMODE/ITERATION/DELTA/SAVERECALC
+    R(s,0x002A,b=>b.u16(0)); R(s,0x002B,b=>b.u16(0)); R(s,0x0082,b=>b.u16(1));
+    R(s,0x0080,b=>{b.u16(0);b.u16(0);b.u16(0);b.u16(0);});         // GUTS
+    R(s,0x0225,b=>{b.u16(0);b.u16(300);});                          // DEFAULTROWHEIGHT 15pt
+    R(s,0x0081,b=>b.u16(ps.fitToPage?0x05C1:0x04C1));               // WSBOOL（适应页面）
+    const hf=ws.headerFooter||{};
+    R(s,0x0014,b=>{ if(hf.oddHeader) str16(b,hf.oddHeader); });     // HEADER
+    R(s,0x0015,b=>{ if(hf.oddFooter) str16(b,hf.oddFooter); });     // FOOTER
+    R(s,0x0083,b=>b.u16(0)); R(s,0x0084,b=>b.u16(0));               // HCENTER / VCENTER
+    const mg=ps.margins||{};
+    [[0x0026,'left'],[0x0027,'right'],[0x0028,'top'],[0x0029,'bottom']].forEach(([t,k])=>{ if(mg[k]!=null) R(s,t,b=>b.f64(mg[k])); });
+    R(s,0x00A1,b=>{                                                 // SETUP
+      b.u16(ps.paperSize||9); b.u16(ps.scale||100); b.u16(1);
+      b.u16(ps.fitToWidth??1); b.u16(ps.fitToHeight??1);
+      b.u16(ps.orientation==='landscape'?0x0000:0x0002);
+      b.u16(600); b.u16(600); b.f64(mg.header??0.3); b.f64(mg.footer??0.3); b.u16(1);
+    });
+    R(s,0x0055,b=>b.u16(8));                                        // DEFCOLWIDTH
+    for(let c=1;c<=ncol;c++){                                       // COLINFO
+      const col=ws.getColumn(c); if(!col.width&&!col.hidden) continue;
+      R(s,0x007D,b=>{b.u16(c-1);b.u16(c-1);b.u16(Math.round((col.width||8.43)*256));b.u16(15);b.u16(col.hidden?1:0);b.u16(0);});
+    }
+    R(s,0x0200,b=>{b.u32(0);b.u32(nrow);b.u16(0);b.u16(ncol);b.u16(0);}); // DIMENSIONS
+    for(let i=0;i<rowsOut.length;i+=32){                            // 每 32 行一块：先 ROW 再单元格
+      const blk=rowsOut.slice(i,i+32);
+      blk.forEach(ro=>R(s,0x0208,b=>{b.u16(ro.r);b.u16(0);b.u16(ncol);b.u16(ro.ht);b.u16(0);b.u16(0);b.u16(0x0100|(ro.custom?0x40:0));b.u16(15);}));
+      blk.forEach(ro=>ro.cells.forEach(ce=>{
+        if(ce.num!==undefined) R(s,0x0203,b=>{b.u16(ro.r);b.u16(ce.c);b.u16(ce.xf);b.f64(ce.num);});
+        else if(ce.sst!==undefined) R(s,0x00FD,b=>{b.u16(ro.r);b.u16(ce.c);b.u16(ce.xf);b.u32(ce.sst);});
+        else R(s,0x0201,b=>{b.u16(ro.r);b.u16(ce.c);b.u16(ce.xf);});
+      }));
+    }
+    const view=(ws.views&&ws.views[0])||{};
+    const ySplit=view.state==='frozen'?(view.ySplit||0):0, xSplit=view.state==='frozen'?(view.xSplit||0):0;
+    const frozen=ySplit||xSplit, zoom=view.zoomScale||100;
+    R(s,0x023E,b=>{b.u16(0x06B6|(frozen?0x0108:0));b.u16(0);b.u16(0);b.u16(0x40);b.u16(0);b.u16(0);b.u16(zoom===100?0:zoom);b.u32(0);}); // WINDOW2
+    if(zoom!==100) R(s,0x00A0,b=>{b.u16(zoom);b.u16(100);});        // SCL 缩放
+    let pane=3;
+    if(frozen){
+      pane = ySplit&&xSplit?0 : ySplit?2 : 1;
+      R(s,0x0041,b=>{b.u16(xSplit);b.u16(ySplit);b.u16(ySplit);b.u16(xSplit);b.u8(pane);b.u8(0);}); // PANE
+    }
+    R(s,0x001D,b=>{b.u8(pane);b.u16(ySplit);b.u16(xSplit);b.u16(0);b.u16(1);b.u16(ySplit);b.u16(ySplit);b.u8(xSplit);b.u8(xSplit);}); // SELECTION
+    R(s,0x000A);
+
+    g.set32(bsPos, g.len);                                          // 回填工作表偏移
+    const stream=new Uint8Array(g.len+s.len); stream.set(g.out(),0); stream.set(s.out(),g.len);
+    return cfb(stream);
+  }
+
+  // OLE2 复合文档容器（单个 Workbook 流）
+  function cfb(data){
+    if(data.length<4096){ const p=new Uint8Array(4096); p.set(data); data=p; }   // 避免进 mini stream
+    const nData=Math.ceil(data.length/512);
+    let nFat=1; while(nData+1+nFat>nFat*128) nFat++;
+    if(nFat>109) throw new Error('表格过大，无法生成 xls');
+    const total=nData+1+nFat, dirSec=nData, fat0=nData+1;
+    const out=new Uint8Array(512*(1+total)), dv=new DataView(out.buffer);
+    const END=0xFFFFFFFE, FREE=0xFFFFFFFF, FATSECT=0xFFFFFFFD;
+    [0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1].forEach((v,i)=>out[i]=v);
+    dv.setUint16(24,0x3E,true); dv.setUint16(26,3,true); dv.setUint16(28,0xFFFE,true);
+    dv.setUint16(30,9,true); dv.setUint16(32,6,true);
+    dv.setUint32(44,nFat,true); dv.setUint32(48,dirSec,true); dv.setUint32(56,4096,true);
+    dv.setUint32(60,END,true); dv.setUint32(68,END,true);
+    for(let i=0;i<109;i++) dv.setUint32(76+i*4, i<nFat?fat0+i:FREE, true);
+    out.set(data,512);
+    const d=512*(1+dirSec);
+    const entry=(k,name,type,child,start,size,clsid)=>{
+      const o=d+k*128;
+      for(let i=0;i<name.length;i++) dv.setUint16(o+i*2,name.charCodeAt(i),true);
+      dv.setUint16(o+64,(name.length+1)*2,true); out[o+66]=type; out[o+67]=1;
+      dv.setUint32(o+68,FREE,true); dv.setUint32(o+72,FREE,true); dv.setUint32(o+76,child,true);
+      if(clsid) out.set(clsid,o+80);
+      dv.setUint32(o+116,start,true); dv.setUint32(o+120,size,true);
+    };
+    entry(0,'Root Entry',5,1,END,0,[0x20,0x08,0x02,0,0,0,0,0,0xC0,0,0,0,0,0,0,0x46]);
+    entry(1,'Workbook',2,FREE,0,data.length);
+    for(let k=2;k<4;k++){ const o=d+k*128; dv.setUint32(o+68,FREE,true); dv.setUint32(o+72,FREE,true); dv.setUint32(o+76,FREE,true); }
+    for(let i=0;i<nFat*128;i++){
+      const v = i<nData ? (i===nData-1?END:i+1) : i===dirSec ? END : (i>=fat0&&i<fat0+nFat) ? FATSECT : FREE;
+      dv.setUint32(512*(1+fat0)+i*4, v, true);
+    }
+    return out;
+  }
+
+  return { writeWorkbook };
+})();
+
 async function processExcelFile(file, headerRight){
   const buf = await file.arrayBuffer();
   const wbIn = XLSX.read(buf, {type:'array'});
@@ -554,8 +797,8 @@ async function processExcelFile(file, headerRight){
   const previews = [];
   for(const w of keys){
     const {wb, preview} = buildWarehouseWorkbook(w, groups.get(w), headerRight, tomorrow);
-    const out = await wb.xlsx.writeBuffer();
-    files.set(w + ".xlsx", new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const out = XLSWriter.writeWorkbook(wb.worksheets[0]);
+    files.set(w + ".xls", new Blob([out], {type:'application/vnd.ms-excel'}));
     previews.push(preview);
   }
   if(!files.size) throw new Error("没有可拆分的数据（仓库分组为空）");
@@ -602,7 +845,7 @@ function render(){
   });
   const dl=$('#dllist'); dl.innerHTML='';
   data.previews.forEach(p=>{
-    const name=p.warehouse+'.xlsx';
+    const name=p.warehouse+'.xls';
     const it=document.createElement('div'); it.className='dl-item';
     it.innerHTML='<span>'+esc(name)+'　·　'+p.count+' 行</span><a>下载</a>';
     it.querySelector('a').onclick=()=>downloadBlob(FILES.get(name), name);
