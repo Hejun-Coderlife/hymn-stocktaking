@@ -80,6 +80,8 @@
   .drop .big{font-family:var(--song);font-weight:400;font-size:18px;letter-spacing:.08em;display:block}
   .drop .small{display:block;font-size:12.5px;color:var(--t3);margin-top:10px;line-height:1.8}
   .file-tag{display:inline-block;margin-top:12px;font-size:12.5px;color:var(--ink);word-break:break-all}
+  .clr{display:inline-block;margin-left:14px;font-size:12px;color:var(--t3);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .clr:hover{color:var(--ink)}
   .file-tag .dot{display:inline-block;width:6px;height:6px;background:var(--acc);margin-right:8px;vertical-align:2px}
 
   /* 按钮：透明底 + 1px 黑边，hover 填黑；主按钮香槟金 */
@@ -239,7 +241,6 @@
         </div>
         <div class="row">
           <button class="btn btn-primary" id="dlzip">下载全部（ZIP）</button>
-          <button class="btn btn-ghost" id="again">重新选择</button>
         </div>
         <div class="dl-list" id="dllist"></div>
       </div>
@@ -309,7 +310,7 @@ drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length)setFile(ev.dat
 fileInput.onchange=()=>{if(fileInput.files.length)setFile(fileInput.files[0])};
 
 function setFile(f){chosen=f;go.disabled=false;err.style.display='none';
-  $('#filetag').innerHTML='<span class="file-tag"><span class="dot"></span>'+esc(f.name)+'</span>'; drop.classList.add('has'); $('#sidedata').innerHTML='当前表格<br><b>'+esc(f.name)+'</b>';}
+  $('#filetag').innerHTML='<span class="file-tag"><span class="dot"></span>'+esc(f.name)+'</span><a class="clr" id="clr">清空</a>'; drop.classList.add('has'); $('#sidedata').innerHTML='当前表格<br><b>'+esc(f.name)+'</b>';}
 
 // ───────────────────────────────────────────────────────────────────
 // 纯前端处理：逻辑等价于原 Flask 后端 build_warehouse_workbook / process_excel
@@ -825,10 +826,12 @@ $('#dlzip').onclick=async ()=>{
   const content=await zip.generateAsync({type:'blob'});
   downloadBlob(content, data.zip_name);
 };
-$('#again').onclick=()=>{
+// 清空：文件名后面的小字链接（2026-11-17 用户：「重新选择」按钮不要，改成清空上传的表格）
+$('#filetag').addEventListener('click',e=>{ if(e.target.id!=='clr') return; e.preventDefault(); e.stopPropagation(); clearAll(); });
+function clearAll(){
   data=null; chosen=null; FILES=new Map(); fileInput.value=''; $('#filetag').innerHTML=''; drop.classList.remove('has'); $('#sidedata').textContent='还没选表格';
-  go.disabled=true; $('#rbody').style.display='none'; $('#lctrl').style.display='none'; $('#empty').style.display='flex';
-};
+  go.disabled=true; $('#rbody').style.display='none'; $('#lctrl').style.display='none'; $('#empty').style.display='flex'; err.style.display='none';
+}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // 页眉文字：应用并重新生成（用已选文件重跑，同步预览与下载）
