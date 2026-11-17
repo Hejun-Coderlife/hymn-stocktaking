@@ -120,6 +120,11 @@
   .ppbar input{flex:1;min-width:0;height:40px;border:1px solid var(--line-2);border-radius:0;background:#fff;padding:0 12px;font-size:14px}
   .ppbar input:focus{outline:none;border-color:var(--ink)}
   .ppbar .mini{border:1px solid var(--ink);background:transparent;height:40px;padding:0 16px;font-size:12.5px;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:.2s}
+  .hide{display:none!important}
+  .savebar{margin-top:18px}
+  .ppbar .dir{flex:1;min-width:0;height:40px;line-height:38px;border:1px solid var(--line);background:var(--paper);padding:0 12px;font-size:14px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ppbar .dir i{font-style:normal;color:var(--t3);font-size:12.5px}
   .ppbar .mini:hover{background:var(--ink);color:#fff}
 
   /* 单店下载：表格行 */
@@ -146,21 +151,28 @@
   .ghost .gbar{height:6px;background:#eee;margin:3px 4px}
 
   .stage-wrap{position:relative;border-top:1px solid var(--acc)}
-  .stage{background:var(--paper);padding:28px 0;height:calc(100vh - 200px);min-height:460px;overflow:auto}
+  .stage{background:var(--paper);padding:56px 0 28px;height:calc(100vh - 200px);min-height:460px;overflow:auto}
   .fs-btn,.zoom-ctrl button,.zoom-ctrl .zlabel{height:32px;border:1px solid var(--line-2);border-radius:0;background:#fff;color:var(--ink);
     display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;line-height:1;transition:.2s}
   .fs-btn{position:absolute;top:12px;right:12px;z-index:6;width:32px}
   .zoom-ctrl{position:absolute;top:12px;left:12px;z-index:6;display:flex;gap:4px}
   .zoom-ctrl button{width:32px;font-size:17px}
   .zoom-ctrl .zlabel{min-width:52px;font-family:var(--num);font-size:13px}
+  /* 一览 / 单页（2026-11-17 用户：页多时阵列看满屏，放大后又能像一页那样看清） */
+  .zoom-ctrl .mode{width:auto;padding:0 12px;font-size:12.5px;letter-spacing:.06em;margin-left:6px}
+  .zoom-ctrl .mode + .mode{margin-left:0}
+  .zoom-ctrl .mode.on{border-color:var(--acc);color:var(--acc-dk);font-weight:600}
   .fs-btn:hover,.zoom-ctrl button:hover,.zoom-ctrl .zlabel:hover{border-color:var(--ink)}
   .stage-wrap:fullscreen{background:var(--paper)}
-  .stage-wrap:fullscreen .stage{height:100vh;padding:56px 0 40px}
-  .stage-wrap:-webkit-full-screen .stage{height:100vh;padding:56px 0 40px}
-  .pp-meta{text-align:center;color:var(--t3);font-size:11.5px;letter-spacing:.14em;margin-bottom:18px}
+  .stage-wrap:fullscreen .stage{height:100vh;padding:56px 0 28px}
+  .stage-wrap:-webkit-full-screen .stage{height:100vh;padding:56px 0 28px}
+  .pp-meta{text-align:center;color:var(--t3);font-size:11.5px;letter-spacing:.14em;margin:0 0 14px;line-height:16px}
+  .sheets{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:26px;padding:0 26px}
+  .sheets.multi .sheet{cursor:zoom-in}
+  .sheets.multi .sheet:hover{outline:2px solid var(--acc);outline-offset:-1px}
 
   /* A4 纸（排版不动，跟导出的表一致） */
-  .sheet{width:720px;aspect-ratio:210/297;margin:0 auto 26px;background:#fff;color:#000;padding:26px 26px 34px;
+  .sheet{width:720px;flex:none;aspect-ratio:210/297;margin:0;background:#fff;color:#000;padding:26px 26px 34px;
     position:relative;border:1px solid var(--line-2)}
   .sheet-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;font-size:11px;color:#333;
     margin-bottom:9px;font-family:'DM Sans',sans-serif}
@@ -239,6 +251,10 @@
           <span class="pl">右上角有效期</span>
           <div class="ln"><input id="hdr" value="有效期统计2028年6月30日前" spellcheck="false"><button class="mini" id="applyhdr">应用并更新</button></div>
         </div>
+        <div class="ppbar savebar hide" id="savebar">
+          <span class="pl">保存位置</span>
+          <div class="ln"><div class="dir" id="dirName">—</div><button class="mini" id="pickDir">更改…</button></div>
+        </div>
         <div class="row">
           <button class="btn btn-primary" id="dlzip">下载全部（ZIP）</button>
         </div>
@@ -271,6 +287,8 @@
             <button id="zoomout" title="缩小" aria-label="缩小">−</button>
             <span class="zlabel" id="zlabel" title="点击回到 100%">100%</span>
             <button id="zoomin" title="放大（Ctrl/⌘+滚轮）" aria-label="放大">+</button>
+            <button class="mode" id="vAll" title="所有页铺满屏幕">一览</button>
+            <button class="mode" id="vOne" title="一页铺满宽度，看得最清楚">单页</button>
           </div>
           <div class="stage" id="stage"></div>
         </div>
@@ -789,42 +807,81 @@ function drawSheets(){
   const rows=p.rows;
   const pages=Math.max(1,Math.ceil(rows.length/ROWS_PER_PAGE));
   $('#st-pages').textContent=pages;
-  let html='<div class="pp-meta">A4 · 纵向 · 每页重复表头（共 '+pages+' 页）</div>';
+  let html='';
   for(let pi=0; pi<pages; pi++){
     const slice=rows.slice(pi*ROWS_PER_PAGE,(pi+1)*ROWS_PER_PAGE);
-    html+='<div class="sheet">'
+    html+='<div class="sheet" data-i="'+pi+'">'
       +'<div class="sheet-hd"><div class="l">盘点'+esc(p.warehouse)+' '+esc(data.header_date)+'</div>'
       +'<div class="c">第 '+(pi+1)+' 页，共 '+pages+' 页</div>'
       +'<div class="r">'+esc(data.header_right||'有效期统计2028年6月30日前')+'</div></div>'
       +'<table class="ptable">'+colgroup()+titleRows()
       +'<tbody>'+slice.map(dataRow).join('')+'</tbody></table></div>';
   }
-  const stage=$('#stage'); stage.innerHTML='<div class="sheets" id="sheets">'+html+'</div>';
-  const sh=$('#sheets'); if(sh) sh.style.zoom=previewZoom;   // 保持当前缩放
+  const stage=$('#stage');
+  stage.innerHTML='<div class="pp-meta">A4 · 纵向 · 每页重复表头（共 '+pages+' 页）</div><div class="sheets" id="sheets">'+html+'</div>';
   stage.scrollTop=0;
+  if(window.previewRefit) previewRefit();   // 一览 / 单页按新页数重新算；自定义缩放保持
 }
 
-function downloadBlob(blob, name){
+// ── 保存位置（2026-11-17 用户：默认桌面，加个按钮能选 / 改下载路径）──
+// 网页不能自己定路径，只能用 Chrome 的「选文件夹」（File System Access）：第一次下载时弹框（默认停在桌面），
+// 选过的文件夹存在 IndexedDB，以后直接写进去；「更改…」随时换。Safari 等不支持的浏览器照旧走浏览器下载
+const CAN_DIR = 'showDirectoryPicker' in window;
+let saveDir=null;
+const idb=(mode,fn)=>new Promise((ok,no)=>{ const r=indexedDB.open('stk',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+  r.onsuccess=()=>{ const tx=r.result.transaction('kv',mode); const q=fn(tx.objectStore('kv')); tx.oncomplete=()=>ok(q&&q.result); tx.onerror=()=>no(tx.error); };
+  r.onerror=()=>no(r.error); });
+const dirLabel=h=>!h?'<i>还没选，第一次下载时选（默认打开桌面）</i>':(h.name==='Desktop'?'桌面':esc(h.name));
+function showDir(){ $('#dirName').innerHTML=dirLabel(saveDir); }
+async function pickDir(){
+  try{ const h=await window.showDirectoryPicker({id:'stk-save', mode:'readwrite', startIn: saveDir||'desktop'});
+    saveDir=h; try{ await idb('readwrite',st=>st.put(h,'dir')); }catch(e){} showDir(); return h;
+  }catch(e){ return null; }   // 点了取消
+}
+// 下载前（还在点击手势里）确认文件夹可写：没选过就弹框选，选过的要权限就请求
+async function readyDir(){
+  if(!CAN_DIR) return null;
+  if(!saveDir) return await pickDir();
+  try{ let st=await saveDir.queryPermission({mode:'readwrite'});
+    if(st!=='granted') st=await saveDir.requestPermission({mode:'readwrite'});
+    return st==='granted'?saveDir:null; }catch(e){ return null; }
+}
+async function uniqueName(dir,name){   // 同名不覆盖，跟浏览器一样加 (1)(2)
+  const dot=name.lastIndexOf('.'), base=dot>0?name.slice(0,dot):name, ext=dot>0?name.slice(dot):'';
+  for(let i=0;i<200;i++){ const n=i?base+' ('+i+')'+ext:name;
+    try{ await dir.getFileHandle(n); }catch(e){ return n; } }
+  return name;
+}
+async function saveBlob(blob, name, dir){
   if(!blob){ err.textContent='文件尚未生成，请重新处理'; err.style.display='block'; return; }
+  if(dir){ try{ const n=await uniqueName(dir,name); const fh=await dir.getFileHandle(n,{create:true});
+      const w=await fh.createWritable(); await w.write(blob); await w.close();
+      showToast(n,'已保存','保存到：<b>'+dirLabel(dir)+'</b>'); return; }catch(e){ /* 写不了就退回普通下载 */ } }
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name||''; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
-  showToast(name);
+  showToast(name,'已开始下载','保存位置：浏览器的「下载」文件夹');
 }
-function showToast(name){
+async function downloadBlob(blob, name){ saveBlob(blob, name, await readyDir()); }
+function showToast(name,title,where){
   const t=$('#toast');
-  t.innerHTML='<div class="tt"><span class="ck">✓</span>已开始下载</div>'
-    +'<div class="td">文件名：<b>'+esc(name)+'</b><br>保存位置：浏览器的「下载」文件夹（如开启了「下载前询问」，则为你所选位置）</div>';
+  t.innerHTML='<div class="tt"><span class="ck">✓</span>'+title+'</div>'
+    +'<div class="td">文件名：<b>'+esc(name)+'</b><br>'+where+'</div>';
   t.classList.add('show');
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),5200);
 }
+if(CAN_DIR){ $('#savebar').classList.remove('hide');
+  idb('readonly',st=>st.get('dir')).then(h=>{ if(h){ saveDir=h; } showDir(); }).catch(showDir);
+  $('#pickDir').onclick=pickDir; }
 
 $('#dlzip').onclick=async ()=>{
   if(!data || !FILES.size) return;
+  const dir=await readyDir();   // 先在点击手势里拿到文件夹，再打包
   const zip=new JSZip();
   FILES.forEach((blob,name)=> zip.file(name, blob));
   const content=await zip.generateAsync({type:'blob'});
-  downloadBlob(content, data.zip_name);
+  saveBlob(content, data.zip_name, dir);
 };
 // 清空：文件名后面的小字链接（2026-11-17 用户：「重新选择」按钮不要，改成清空上传的表格）
 $('#filetag').addEventListener('click',e=>{ if(e.target.id!=='clr') return; e.preventDefault(); e.stopPropagation(); clearAll(); });
@@ -837,6 +894,11 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 // 页眉文字：应用并重新生成（用已选文件重跑，同步预览与下载）
 $('#applyhdr').onclick=()=>{ if(chosen) runProcess(); };
 $('#hdr').addEventListener('keydown',e=>{ if(e.key==='Enter'&&chosen) runProcess(); });
+// 有效期记在这台电脑的浏览器里，刷新 / 下次打开还是改过的（2026-11-17 用户）；清空输入框 = 回到默认
+(function(){ const K='stk.headerRight', h=$('#hdr');
+  try{ const v=localStorage.getItem(K); if(v) h.value=v; }catch(e){}
+  h.addEventListener('input',()=>{ try{ const v=h.value.trim(); v?localStorage.setItem(K,v):localStorage.removeItem(K); }catch(e){} });
+})();
 
 // 赫眉 HYMN 品牌 logo（SVG 矢量）
 const LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 200" role="img" aria-label="赫眉 HYMN">'
@@ -863,17 +925,49 @@ $('#topbrand').innerHTML='<span class="hymn-logo" role="img" aria-label="赫眉 
   document.addEventListener('webkitfullscreenchange',sync);
 })();
 
-// 预览缩放（普通/全屏均可；按钮或 Ctrl/⌘+滚轮）
+// 预览缩放：页面自动排成多列（缩小 = 一行多页，放大到一定程度 = 一行一页）
+// 「一览」= 自动算出所有页塞满预览区的最大缩放；「单页」= 一页铺满宽度；点一览里的某页 = 单页并跳到这页
+// 缩放时保持正在看的那页不跑掉（2026-11-17 用户）
 (function(){
-  const stage=$('#stage'), zi=$('#zoomin'), zo=$('#zoomout'), zl=$('#zlabel');
+  const stage=$('#stage'), zi=$('#zoomin'), zo=$('#zoomout'), zl=$('#zlabel'), bAll=$('#vAll'), bOne=$('#vOne');
   if(!stage||!zi) return;
-  const clamp=v=>Math.min(3, Math.max(0.4, v));
-  const apply=()=>{ const sh=$('#sheets'); if(sh) sh.style.zoom=previewZoom; zl.textContent=Math.round(previewZoom*100)+'%'; };
-  zi.onclick=()=>{ previewZoom=clamp(Math.round(previewZoom*10)/10 + 0.2); apply(); };  // 先对齐 0.1 网格再步进
-  zo.onclick=()=>{ previewZoom=clamp(Math.round(previewZoom*10)/10 - 0.2); apply(); };
-  zl.onclick=()=>{ previewZoom=1; apply(); };   // 点百分比直接回到 100%
+  const SW=720, GAP=26, PADX=26;
+  const SH=()=>{ const f=$('#sheets')&&$('#sheets').children[0]; return f?f.offsetHeight:720*297/210; };   // 45 行会把纸撑得比 A4 高，按实际量
+  let mode='all';   // all | one | custom
+  const clamp=v=>Math.min(3, Math.max(0.12, v));
+  const box=()=>{ const meta=stage.querySelector('.pp-meta');
+    return { W: stage.clientWidth, H: stage.clientHeight - 84 - (meta?meta.offsetHeight+14:0) - 2 }; };
+  const nPages=()=>$('#sheets')?$('#sheets').children.length:1;
+  function fitAll(){ const {W,H}=box(), n=nPages(); let best=0.12;
+    for(let c=1;c<=n;c++){ const r=Math.ceil(n/c);
+      const z=Math.min((W)/(c*SW+(c-1)*GAP+2*PADX), H/(r*SH()+(r-1)*GAP)); if(z>best) best=z; }
+    return Math.min(best,1.4); }
+  function fitOne(){ const {W}=box(); return Math.min(W/(SW+2*PADX), 1.8); }
+  // 当前视野最上面那页
+  function anchor(){ const sh=$('#sheets'); if(!sh) return null; const top=stage.getBoundingClientRect().top;
+    for(const el of sh.children){ if(el.getBoundingClientRect().bottom>top+40) return +el.dataset.i; } return null; }
+  function goPage(i){ const sh=$('#sheets'); const el=sh&&sh.children[i]; if(!el) return;
+    stage.scrollTop += el.getBoundingClientRect().top - stage.getBoundingClientRect().top - 12; }
+  function apply(keep){ const sh=$('#sheets'); const i=keep?anchor():null;
+    if(sh){ sh.style.zoom=previewZoom;
+      const cols=Math.max(1,Math.floor((stage.clientWidth/previewZoom-2*PADX+GAP)/(SW+GAP)));
+      sh.classList.toggle('multi', cols>1 && nPages()>1); }
+    zl.textContent=Math.round(previewZoom*100)+'%';
+    bAll.classList.toggle('on',mode==='all'); bOne.classList.toggle('on',mode==='one');
+    if(i!=null) goPage(i); }
+  function set(m,z,keep){ mode=m; previewZoom=clamp(z); apply(keep); }
+  window.previewRefit=()=>{ if(mode==='all') set('all',fitAll()); else if(mode==='one') set('one',fitOne()); else apply(); };
+  bAll.onclick=()=>{ set('all',fitAll()); stage.scrollTop=0; };
+  bOne.onclick=()=>set('one',fitOne(),true);
+  zi.onclick=()=>set('custom',Math.round(previewZoom*10)/10+0.1,true);
+  zo.onclick=()=>set('custom',Math.round(previewZoom*10)/10-0.1,true);
+  zl.onclick=()=>set('custom',1,true);
   stage.addEventListener('wheel',e=>{ if(e.ctrlKey||e.metaKey){ e.preventDefault();
-    previewZoom=clamp(+(previewZoom+(e.deltaY<0?0.1:-0.1)).toFixed(2)); apply(); } },{passive:false});
+    set('custom',+(previewZoom*(e.deltaY<0?1.1:1/1.1)).toFixed(3),true); } },{passive:false});
+  stage.addEventListener('click',e=>{ const sh=$('#sheets'); if(!sh||!sh.classList.contains('multi')) return;
+    const el=e.target.closest('.sheet'); if(!el) return; set('one',fitOne()); goPage(+el.dataset.i); });
+  let rt; const re=()=>{ clearTimeout(rt); rt=setTimeout(()=>{ if(mode!=='custom') previewRefit(); },120); };
+  new ResizeObserver(re).observe(stage);   // 栏宽在出结果那一下会变（滚动条 / 左栏展开），量准了再算
   apply();
 })();
 
