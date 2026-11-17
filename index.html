@@ -436,6 +436,8 @@ function buildWarehouseWorkbook(warehouse, rows, headerRight, tomorrow){
   ws.getCell('K2').fill=blue;
   ws.getCell('L2').fill=blue;
   ['J','K','L','M'].forEach(c=>{ ws.getCell(c+'2').font={size:20,color:{argb:'FF000000'}}; });
+  // 「库存总数」两行字：20 号放不进 50 磅高的表头会被裁掉，单独用 16 号（不动行高，免得影响每页 45 行）
+  ws.getCell('F2').font={size:16};
 
   // 示例行居中
   ws.getCell('G1').alignment={horizontal:'center',vertical:'middle'};
@@ -512,7 +514,8 @@ const XLSWriter = (()=>{
     // 字体 / XF 去重
     const fonts=[], fontKey=new Map();
     const fontIdx=f=>{
-      f=f||{}; const size=f.size||11, name=f.name||'Calibri', bold=!!f.bold,
+      f=f||{}; const size=f.size||11, name=f.name||'宋体',      // 没指定字体 = 宋体（跟以前 xlsx 在 WPS 里的样子一致）
+            bold=!!f.bold,
             icv=f.color&&f.color.argb?color(f.color.argb):0x7FFF;
       const k=[size,name,bold,icv].join('|');
       if(!fontKey.has(k)){ fontKey.set(k, fonts.length<4? fonts.length : fonts.length+1); fonts.push({size,name,bold,icv}); }
@@ -546,7 +549,8 @@ const XLSWriter = (()=>{
         const xf=xfIdx(st);
         if(typeof v==='number'&&isFinite(v)) cells.push({c:c-1,xf,num:v});
         else if(v!==null&&v!==undefined&&v!==''){
-          const s=String(v); if(!sstMap.has(s)){sstMap.set(s,sst.length);sst.push(s);} sstTotal++;
+          const s=String(v).replace(/\r\n?/g,'\n');   // xls 换行只认 \n
+          if(!sstMap.has(s)){sstMap.set(s,sst.length);sst.push(s);} sstTotal++;
           cells.push({c:c-1,xf,sst:sstMap.get(s)});
         } else cells.push({c:c-1,xf});
       }
