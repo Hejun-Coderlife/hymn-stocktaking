@@ -315,7 +315,7 @@
         <div class="tabs" id="tabs"></div>
         <div class="ppbar">
           <span class="pl">📅 右上角有效期</span>
-          <input id="hdr" value="有效期统计2027年12月31日前" spellcheck="false">
+          <input id="hdr" value="有效期统计2028年6月30日前" spellcheck="false">
           <button class="mini" id="applyhdr">应用并更新</button>
         </div>
         <div class="row">
@@ -379,7 +379,7 @@ const COLS = [
 const WSUM = COLS.reduce((s,c)=>s+c.w,0);
 const EXAMPLE = ["举例","Lumi综合发酵果粉（固体饮料）","4712847540248","Lumi","79","10","3+8","20251231",""];
 const ROWS_PER_PAGE = 45;  // 对齐下载 Excel（WPS 适应页宽）每页实际行数：483行=10页×45+末页33，逐页与 WPS 完全一致
-const DEFAULT_HEADER_RIGHT = "有效期统计2027年12月31日前";
+const DEFAULT_HEADER_RIGHT = "有效期统计2028年6月30日前";
 
 let chosen=null, data=null, active=0, toastTimer=null;
 let FILES = new Map();           // name -> Blob（已生成的 xls）
@@ -877,7 +877,7 @@ function drawSheets(){
     html+='<div class="sheet">'
       +'<div class="sheet-hd"><div class="l">盘点'+esc(p.warehouse)+' '+esc(data.header_date)+'</div>'
       +'<div class="c">第 '+(pi+1)+' 页，共 '+pages+' 页</div>'
-      +'<div class="r">'+esc(data.header_right||'有效期统计2027年12月31日前')+'</div></div>'
+      +'<div class="r">'+esc(data.header_right||'有效期统计2028年6月30日前')+'</div></div>'
       +'<table class="ptable">'+colgroup()+titleRows()
       +'<tbody>'+slice.map(dataRow).join('')+'</tbody></table></div>';
   }

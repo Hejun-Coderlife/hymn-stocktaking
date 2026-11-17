@@ -28,7 +28,7 @@ REQUIRED_COLS = ["商品编号", "商品名称", "商品条码", "品牌", "零�
 # ───────────────────────────────────────────────────────────────────
 # 核心处理：与原脚本逐行一致，仅把「读文件/存文件夹」改为「读字节/存内存」
 # ───────────────────────────────────────────────────────────────────
-DEFAULT_HEADER_RIGHT = "有效期统计2027年12月31日前"
+DEFAULT_HEADER_RIGHT = "有效期统计2028年6月30日前"
 
 
 def build_warehouse_workbook(warehouse, data, header_right=DEFAULT_HEADER_RIGHT):
@@ -601,7 +601,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
         <div class="tabs" id="tabs"></div>
         <div class="ppbar">
           <span class="pl">📅 右上角有效期</span>
-          <input id="hdr" value="有效期统计2027年12月31日前" spellcheck="false">
+          <input id="hdr" value="有效期统计2028年6月30日前" spellcheck="false">
           <button class="mini" id="applyhdr">应用并更新</button>
         </div>
         <div class="stage" id="stage"></div>
@@ -709,7 +709,7 @@ function drawSheets(){
     html+='<div class="sheet">'
       +'<div class="sheet-hd"><div class="l">盘点'+esc(p.warehouse)+' '+esc(data.header_date)+'</div>'
       +'<div class="c">第 '+(pi+1)+' 页，共 '+pages+' 页</div>'
-      +'<div class="r">'+esc(data.header_right||'有效期统计2027年12月31日前')+'</div></div>'
+      +'<div class="r">'+esc(data.header_right||'有效期统计2028年6月30日前')+'</div></div>'
       +'<table class="ptable">'+colgroup()+titleRows()
       +'<tbody>'+slice.map(dataRow).join('')+'</tbody></table></div>';
   }
